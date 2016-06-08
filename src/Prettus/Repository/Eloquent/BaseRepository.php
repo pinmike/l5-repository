@@ -17,9 +17,11 @@ use Prettus\Repository\Contracts\RepositoryInterface;
 use Prettus\Repository\Events\RepositoryEntityCreated;
 use Prettus\Repository\Events\RepositoryEntityDeleted;
 use Prettus\Repository\Events\RepositoryEntityUpdated;
+use Prettus\Repository\Events\RepositoryFlush;
 use Prettus\Repository\Exceptions\RepositoryException;
 use Prettus\Validator\Contracts\ValidatorInterface;
 use Prettus\Validator\Exceptions\ValidatorException;
+use DB;
 
 /**
  * Class BaseRepository
@@ -357,7 +359,7 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     {
         $this->applyCriteria();
         $this->applyScope();
-        $model = $this->model->findOrFail($id, $columns);
+        $model = $this->model->find($id, $columns);
         $this->resetModel();
 
         return $this->parserResult($model);
@@ -411,6 +413,23 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     }
 
     /**
+     * Find data by a field being null
+     *
+     * @param       $field
+     * @param array $columns
+     *
+     * @return mixed
+     */
+    public function findWhereNull($field, $columns = ['*'])
+    {
+        $this->applyCriteria();
+        $model = $this->model->whereNull($field)->get($columns);
+        $this->resetModel();
+
+        return $this->parserResult($model);
+    }
+
+    /**
      * Find data by multiple values in one field
      *
      * @param       $field
@@ -444,6 +463,72 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         $this->resetModel();
 
         return $this->parserResult($model);
+    }
+
+    /**
+     * Find data using a raw SQL string and optional search parameters
+     *
+     * @param       $searchSql      The SQL string
+     * @param array $searchValues   Values that can be used as parameters with the seachSQL as a prepared statement
+     *
+     * @return mixed
+     */
+    public function findSQL($searchSql='', array $searchValues=array())
+    {
+        $modelClass = get_class($this->model);
+        //If the SQL fails then just return a blank result
+        try {
+            $rawObjects = $this->model->getConnection()->select($searchSql, $searchValues);
+            $model = $modelClass::hydrate($rawObjects);
+        } catch (\Exception $exception) {
+            $rawObjects = array();
+            $model = $modelClass::hydrate($rawObjects);
+        }
+
+        $this->resetModel();
+
+        return $this->parserResult($model);
+    }
+
+    /**
+     * Return a new default model
+     *
+     * @param array $overrideDefaults an array to use to override any defaults that are set in the class itself
+     * @return mixed
+     */
+    public function newDefault(array $overrideDefaults=array())
+    {
+        $defaults = $this->setDefaults();
+
+        if (is_array($defaults))
+        {
+            if(is_array($overrideDefaults))
+            {
+                $defaults = array_merge($defaults, $overrideDefaults);
+            }
+
+        } elseif(is_array($overrideDefaults))
+        {
+            $defaults = $overrideDefaults;
+
+        } else
+        {
+            $defaults = [];
+        }
+        $model = new $this->model($defaults);
+        $this->resetModel();
+
+        return $this->parserResult($model);
+    }
+
+    /**
+     * Set the defaults for a new model
+     *
+     * @return array
+     */
+    public function setDefaults()
+    {
+        return [];
     }
 
     /**
@@ -515,6 +600,50 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     }
 
     /**
+     * Update entities in repository by a where clause
+     *
+     * @throws ValidatorException
+     *
+     * @param array $attributes
+     * @param array $where
+     *
+     * @return mixed
+     */
+    public function updateWhere(array $attributes, array $where)
+    {
+        $tableName = $this->model->getTable();
+        $connection = $this->model->getConnectionName();
+        try {
+            $updated = DB::connection($connection)->table($tableName)->where(function ($query) use ($where){
+                foreach ($where as $clause) {
+                    if (count($clause) == 3) {
+                        $query->where($clause[0], $clause[1], $clause[2]);
+                    } elseif (count($clause) == 2) {
+                        $query->where($clause[0], '=', $clause[1]);
+                    }
+                }
+            })->update($attributes);
+        } catch (Exception $exception) {
+            // if we run into a problem, then we updated no records
+            $updated = 0;
+        }
+
+        $model = DB::connection($connection)->table($tableName)->where(function ($query) use ($where){
+            foreach ($where as $clause) {
+                if (count($clause) == 3) {
+                    $query->where($clause[0], $clause[1], $clause[2]);
+                } elseif (count($clause) == 2) {
+                    $query->where($clause[0], '=', $clause[1]);
+                }
+            }
+        })->first();
+
+        event(new RepositoryEntityUpdated($this, $this->model));
+
+        return $model;
+    }
+
+    /**
      * Update or Create an entity in repository
      *
      * @throws ValidatorException
@@ -574,6 +703,48 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
     }
 
     /**
+     * Delete entities in repository by where clause
+     *
+     * @param   array   $where  The where clause to use
+     *
+     * @return int
+     */
+    public function deleteWhere(array $where)
+    {
+        $tableName = $this->model->getTable();
+        $connection = $this->model->getConnectionName();
+        try {
+            $deleted = DB::connection($connection)->table($tableName)->where(function ($query) use ($where){
+                foreach ($where as $clause) {
+                    if (count($clause) == 3) {
+                        $query->where($clause[0], $clause[1], $clause[2]);
+                    } elseif (count($clause) == 2) {
+                        $query->where($clause[0], '=', $clause[1]);
+                    }
+                }
+            })->delete();
+        } catch (Exception $exception) {
+            // if we run into a problem, just return zero
+            $deleted = 0;
+        }
+
+        event(new RepositoryEntityDeleted($this, $this->model));
+
+        return $deleted;
+    }
+
+    /**
+     * Flush the repository
+     *
+     * @return int
+     */
+    public function flush()
+    {
+        event(new RepositoryFlush($this, $this->model));
+        return 0;
+    }
+
+        /**
      * Check if entity has relation
      *
      * @param string $relation
@@ -844,4 +1015,22 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
 
         return $result;
     }
+
+    /**
+     * Get the ID to use for the cache key. This method can be overridden if the class shortname is not appropriate
+     * for some reason
+     *
+     * @return string   The ID for the cache key, defaulted to the called_class
+     */
+    public function getCacheId()
+    {
+        $returnVal = get_called_class();
+        // remove the full qualification to only have the shortname
+        $lastSlash = strrpos($returnVal, '\\');
+        if ($lastSlash !== false) {
+            $returnVal = substr($returnVal, $lastSlash + 1);
+        }
+        return $returnVal;
+    }
+
 }

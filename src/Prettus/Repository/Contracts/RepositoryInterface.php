@@ -79,6 +79,16 @@ interface RepositoryInterface
     public function findWhere(array $where, $columns = ['*']);
 
     /**
+     * Find data by a field being null
+     *
+     * @param       $field
+     * @param array $columns
+     *
+     * @return mixed
+     */
+    public function findWhereNull($field, $columns = ['*']);
+
+    /**
      * Find data by multiple values in one field
      *
      * @param       $field
@@ -101,6 +111,31 @@ interface RepositoryInterface
     public function findWhereNotIn($field, array $values, $columns = ['*']);
 
     /**
+     * Find data using a raw SQL string and optional search parameters
+     *
+     * @param       $searchSql      The SQL string
+     * @param array $searchValues   Values that can be used as parameters with the searchSQL as a prepared statement
+     *
+     * @return mixed
+     */
+    public function findSQL($searchSql='', array $searchValues=array());
+
+    /**
+     * Return a new default model
+     *
+     * @param array $overrideDefaults an array to use to override any defaults that are set in the class itself
+     * @return mixed
+     */
+    public function newDefault(array $overrideDefaults=array());
+
+    /**
+     * Set the defaults for a new model
+     *
+     * @return array
+     */
+    public function setDefaults();
+
+    /**
      * Save a new entity in repository
      *
      * @param array $attributes
@@ -118,6 +153,18 @@ interface RepositoryInterface
      * @return mixed
      */
     public function update(array $attributes, $id);
+
+    /**
+     * Update entities in repository by a where clause
+     *
+     * @throws ValidatorException
+     *
+     * @param array $attributes
+     * @param array $where
+     *
+     * @return mixed
+     */
+    public function updateWhere(array $attributes, array $where);
 
     /**
      * Update or Create an entity in repository
@@ -139,6 +186,22 @@ interface RepositoryInterface
      * @return int
      */
     public function delete($id);
+
+    /**
+     * Delete entities in repository by where clause
+     *
+     * @param   array   $where  The where clause to use
+     *
+     * @return int
+     */
+    public function deleteWhere(array $where);
+
+    /**
+     * Flush the repository
+     *
+     * @return int
+     */
+    public function flush();
 
     /**
      * Order collection by a given column
@@ -217,4 +280,12 @@ interface RepositoryInterface
      * @return $this
      */
     public function skipPresenter($status = true);
+
+    /**
+     * Get the ID to use for the cache key. This method can be overridden if the class shortname is not appropriate
+     * for some reason
+     *
+     * @return string   The ID for the cache key, defaulted to the called_class
+     */
+    public function getCacheId();
 }

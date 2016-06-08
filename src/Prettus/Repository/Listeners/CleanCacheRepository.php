@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Prettus\Repository\Contracts\RepositoryInterface;
 use Prettus\Repository\Events\RepositoryEventBase;
 use Prettus\Repository\Helpers\CacheKeys;
+use Predis\Connection\Aggregate\SentinelReplication;
 
 /**
  * Class CleanCacheRepository
@@ -59,13 +60,27 @@ class CleanCacheRepository
                 $this->action = $event->getAction();
 
                 if (config("repository.cache.clean.on.{$this->action}", true)) {
-                    $cacheKeys = CacheKeys::getKeys(get_class($this->repository));
 
-                    if (is_array($cacheKeys)) {
-                        foreach ($cacheKeys as $key) {
-                            $this->cache->forget($key);
+                	if (!config("repository.cache.clean.redis", false)) {
+						//The implementation of CacheKeys uses a local file and is slow so accelerate for redis
+	                    $cacheKeys = CacheKeys::getKeys(get_class($this->repository));
+
+	                    if (is_array($cacheKeys)) {
+    	                    foreach ($cacheKeys as $key) {
+        	                    $this->cache->forget($key);
+            	            }
+                	    }
+                    } else {
+						$cacheId = $this->repository->getCacheId();
+    	                $redisClient = $this->cache->__call('getRedis', []);
+    	                $prefix = config("cache.prefix", "laravel");
+                        $connection = config("cache.stores.redis.connection", "default");
+                        $redis = $redisClient->connection($connection);
+                        $keys = call_user_func_array([$redis, 'keys'], [$prefix.':' . $cacheId . '*']);
+                        if (is_array($keys) && count($keys) > 0) {
+                        	$deleteCount = call_user_func_array([$redis, 'del'], $keys);
                         }
-                    }
+            	    }
                 }
             }
         } catch (\Exception $e) {

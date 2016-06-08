@@ -123,9 +123,11 @@ trait CacheableRepository
         $request = app('Illuminate\Http\Request');
         $args = serialize($args);
         $criteria = $this->serializeCriteria();
-        $key = sprintf('%s@%s-%s', get_called_class(), $method, md5($args . $criteria . $request->fullUrl()));
-
-        CacheKeys::putKey(get_called_class(), $key);
+        $key = sprintf('%s@%s-%s', $this->getCacheId(), $method, md5($args . $criteria . $request->fullUrl()));
+		if (!config("repository.cache.clean.redis", false)) {
+			//The implementation of CacheKeys uses a local file and is slow so accelerate for redis
+        	CacheKeys::putKey(get_called_class(), $key);
+        }
 
         return $key;
 
@@ -304,6 +306,83 @@ trait CacheableRepository
 
         return $value;
     }
+    
+    /**
+     * Find data by a field being null
+     *
+     * @param       $field
+     * @param array $columns
+     *
+     * @return mixed
+     */
+    public function findWhereNull($field, $columns = ['*'])
+    {
+        if(!$this->allowedCache('findWhereNull') || $this->isSkippedCache())
+        {
+            return parent::findWhereNull($field, $columns);
+        }
+
+        $key = $this->getCacheKey('findWhereNull', func_get_args());
+        $minutes = $this->getCacheMinutes();
+        $value = $this->getCacheRepository()->remember($key, $minutes, function() use ($field, $columns)
+        {
+            return parent::findWhereNull($field, $columns);
+        });
+
+        return $value;
+    }
+
+    /**
+     * Find data by multiple values in one field
+     *
+     * @param       $field
+     * @param array $values
+     * @param array $columns
+     *
+     * @return mixed
+     */
+    public function findWhereIn($field, array $values, $columns = ['*'])
+    {
+        if(!$this->allowedCache('findWhereIn') || $this->isSkippedCache())
+        {
+            return parent::findWhereIn($field, $values, $columns);
+        }
+
+        $key = $this->getCacheKey('findWhereIn', func_get_args());
+        $minutes = $this->getCacheMinutes();
+        $value = $this->getCacheRepository()->remember($key, $minutes, function() use ($field, $values, $columns)
+        {
+            return parent::findWhereIn($field, $values, $columns);
+        });
+
+        return $value;
+    }
+
+    /**
+     * Find data using a raw SQL string and optional search parameters
+     *
+     * @param       $searchSql      The SQL string
+     * @param array $searchValues   Values that can be used as parameters with the seachSQL as a prepared statement
+     *
+     * @return mixed
+     */
+    public function findSQL($searchSql='', array $searchValues=array())
+    {
+        if(!$this->allowedCache('findSQL') || $this->isSkippedCache())
+        {
+            return parent::findSQL($searchSql, $searchValues);
+        }
+
+        $key = $this->getCacheKey('findSQL', func_get_args());
+        $minutes = $this->getCacheMinutes();
+        $value = $this->getCacheRepository()->remember($key, $minutes, function() use ($searchSql, $searchValues)
+        {
+            return parent::findSQL($searchSql, $searchValues);
+        });
+
+        return $value;
+
+    }
 
     /**
      * Find data by Criteria
@@ -326,4 +405,5 @@ trait CacheableRepository
 
         return $value;
     }
+
 }
