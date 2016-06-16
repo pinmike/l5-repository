@@ -40,5 +40,5 @@
     "league/fractal": "Required to use the Fractal Presenter (0.12.*).",
     "robclancy/presenter": "Required to use the Presenter Model (1.3.*)"
   },
-  "minimum-stability": "stable"
+  "minimum-stability": "dev"
 }
