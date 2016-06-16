@@ -1,5 +1,5 @@
 {
-  "name": "mammutgroup/l5-repository",
+  "name": "pure360/l5-repository",
   "description": "Laravel 5 - Repositories to  the database layer",
   "keywords": ["laravel", "repository", "eloquent", "model", "cache"],
   "license": "MIT",
@@ -10,16 +10,16 @@
       "role": "Developer"
     },
     {
-      "name": "MohammadReza Honarkhah",
-      "email": "m.honar@gmail.com",
+      "name": "Ian Graham",
+      "email": "ian.graham@pure360.com",
       "role": "Developer"
     }
   ],
   "support": {
-    "email": "m.honar@gmail.com",
-    "issues":"https://github.com/mammutgroup/l5-repository/issues",
-    "wiki":"https://github.com/mammutgroup/l5-repository",
-    "source":"https://github.com/mammutgroup/l5-repository"
+    "email": "ian.graham@pure360.com",
+    "issues":"https://github.com/pure360/l5-repository/issues",
+    "wiki":"https://github.com/pure360/l5-repository",
+    "source":"https://github.com/pure360/l5-repository"
   },
   "require": {
     "illuminate/http": "~5.0",
@@ -36,17 +36,9 @@
       "Prettus\\Repository\\": "src/Prettus/Repository/"
     }
   },
-  "config": {
-    "preferred-install": "dist"
-  },
   "suggest": {
     "league/fractal": "Required to use the Fractal Presenter (0.12.*).",
     "robclancy/presenter": "Required to use the Presenter Model (1.3.*)"
   },
-  "extra": {
-    "branch-alias": {
-      "dev-develop": "2.2-dev"
-    }
-  },
-  "minimum-stability": "stable"
+  "minimum-stability": "dev"
 }
