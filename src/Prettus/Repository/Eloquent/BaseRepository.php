@@ -22,6 +22,7 @@ use Prettus\Repository\Exceptions\RepositoryException;
 use Prettus\Validator\Contracts\ValidatorInterface;
 use Prettus\Validator\Exceptions\ValidatorException;
 use DB;
+use Config;
 
 /**
  * Class BaseRepository
@@ -1039,6 +1040,13 @@ abstract class BaseRepository implements RepositoryInterface, RepositoryCriteria
         if ($lastSlash !== false) {
             $returnVal = substr($returnVal, $lastSlash + 1);
         }
+        // see if there is an environmentName configured and if so, prepend it to the class name
+        // so that multiple environments are able to share the same Redis server/cluster
+        $environmentName = Config::get('app.environmentName', '');
+        if (strlen($environmentName) > 0){
+            $returnVal = $environmentName . ':' . $returnVal;
+        }
+
         return $returnVal;
     }
 
