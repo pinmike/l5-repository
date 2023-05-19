@@ -218,11 +218,12 @@ trait CacheableRepository
      *
      * @param null  $limit
      * @param array $columns
+     * @param string $method
      *
      * @return mixed
      */
-    public function paginate($limit = null, $columns = ['*'])
-    {
+    public function paginate($limit = null, $columns = ['*'], $method = 'paginate')
+     {
         if (!$this->allowedCache('paginate') || $this->isSkippedCache()) {
             return parent::paginate($limit, $columns);
         }
